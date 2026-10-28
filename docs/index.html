@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A股月线MACD金叉观察池</title><style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#192434;background:#f5f7fa}
+*{box-sizing:border-box}body{margin:0}main{max-width:1080px;margin:auto;padding:20px 13px 70px}
+h1{font-size:24px;margin:5px 0}h2{font-size:15px;margin:0 0 12px}p{line-height:1.65}small,.muted{color:#67778b;font-size:12px}.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:16px 0}.metric,.panel,.notice{border:1px solid #e0e7ef;border-radius:14px;background:white;padding:14px}.metric b{font-size:23px;display:block}.metric span{color:#67778b;font-size:12px}.panel{margin-bottom:10px}.filters{display:grid;grid-template-columns:1fr 1fr;gap:9px}.filters input[type=text]{grid-column:span 2}.filters input,.filters select{min-width:0;padding:10px;border-radius:10px;border:1px solid #d6dfe9;background:white;font:inherit;font-size:14px;width:100%}.filters label{font-size:13px;align-self:center;grid-column:span 2}.filters label input{width:auto}button{border:0;background:#2458d6;color:#fff;padding:10px 13px;border-radius:9px;font:inherit}#cards{display:grid;grid-template-columns:1fr;gap:9px}.stock{background:#fff;border:1px solid #e0e7ef;border-radius:13px;padding:14px}.stockhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.stock strong{font-size:17px}.stock span{font-size:12px;color:#657488}.stock dl{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin:0}.stock dt{color:#758293;font-size:11px}.stock dd{margin:3px 0;font-size:14px;font-weight:600}.tag{font-size:11px;padding:5px 8px;background:#ecf3ff;color:#1a54b2;border-radius:8px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:11px}.notice{margin:13px 0;font-size:12px;line-height:1.65;color:#8a5600;background:#fffaf0}footer{margin-top:18px;color:#69788b;font-size:12px;line-height:1.7}@media(min-width:680px){.metrics{grid-template-columns:repeat(4,1fr)}#cards{grid-template-columns:repeat(3,1fr)}.filters{grid-template-columns:2fr 1fr 1fr}.filters input[type=text]{grid-column:auto}.filters label{grid-column:auto}}
+</style></head><body><main>
+<header><h1>A股月线MACD金叉观察池</h1><small>沪深A股 · 已收盘月线 · BaoStock前复权 · 技术观察工具</small></header>
+<section class="metrics" id="metrics"><div class="metric"><b>—</b><span>匹配股票</span></div><div class="metric"><b>—</b><span>扫描数量</span></div><div class="metric"><b>—</b><span>最新信号月份</span></div><div class="metric"><b>—</b><span>取数异常</span></div></section>
+<div class="panel filters"><input type="text" id="search" placeholder="搜索名称或代码"><select id="sort"><option value="score">观察分从高到低</option><option value="new">最新金叉优先</option><option value="low">36个月价格位置偏低</option><option value="ret">12个月涨幅偏低</option></select><label><input id="zero" type="checkbox"> 仅看零轴下金叉</label></div>
+<div class="toolbar"><h2 id="count">等待首次运行</h2><button id="csv" hidden>导出CSV</button></div>
+<div class="notice" id="notice">数据尚未生成。如果首次运行，请到GitHub仓库 Actions 手动启动筛选；结果不代表推荐买入。</div>
+<section id="cards"></section>
+<footer id="meta">说明：MACD(12,26,9)，只看最近3根已完成月K线内DIF上穿DEA、且当前DIF仍高于DEA的股票。正在形成的当月金叉不算确认信号。暂不包含北交所和基本面筛选。</footer>
+</main><script>
+var stocks=[],report=null;
+const el=id=>document.getElementById(id);
+const safe=s=>String(s==null?'':s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+function shown(){
+ if(!report)return;
+ const q=el('search').value.trim().toUpperCase();
+ let a=stocks.filter(x=>(x.symbol+x.name).toUpperCase().includes(q)&&(!el('zero').checked||x.cross_below_zero));
+ let s=el('sort').value;
+ a.sort((x,y)=>s==='new'?x.months_since_cross-y.months_since_cross||y.technical_score-x.technical_score:s==='low'?x.range36_position_pct-y.range36_position_pct:s==='ret'?x.return12_pct-y.return12_pct:y.technical_score-x.technical_score||x.months_since_cross-y.months_since_cross);
+ el('count').textContent='当前显示 '+a.length+' 只';
+ el('cards').innerHTML=a.length?a.map(x=>'<article class="stock"><div class="stockhead"><div><strong>'+safe(x.name)+'</strong><div><span>'+safe(x.symbol)+'</span></div></div><b class="tag">技术分 '+x.technical_score+'</b></div><dl><div><dt>确认金叉月份</dt><dd>'+safe(x.cross_month)+'</dd></div><div><dt>距今</dt><dd>'+x.months_since_cross+' 个月</dd></div><div><dt>最近月收盘价</dt><dd>'+Number(x.close).toFixed(2)+'</dd></div><div><dt>零轴下金叉</dt><dd>'+(x.cross_below_zero?'是':'否')+'</dd></div><div><dt>36个月价格位置</dt><dd>'+x.range36_position_pct+'%</dd></div><div><dt>近12个月涨跌幅</dt><dd>'+x.return12_pct+'%</dd></div></dl></article>').join(''):'<div class="notice">当前筛选条件下没有股票</div>';
+ el('csv').onclick=()=>{
+  const cols=['symbol','name','cross_month','months_since_cross','close','cross_below_zero','range36_position_pct','return12_pct','technical_score'];
+  const lines=[cols.join(',')].concat(a.map(x=>cols.map(k=>'"'+String(x[k]??'').replaceAll('"','""')+'"').join(',')));
+  const u=URL.createObjectURL(new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'}));
+  const link=document.createElement('a');link.href=u;link.download='A股月线MACD金叉.csv';link.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+ };
+}
+['search','sort','zero'].forEach(id=>el(id).addEventListener(id==='search'?'input':'change',shown));
+fetch('./results.json?t='+Date.now(),{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('尚无扫描文件');return r.json()}).then(r=>{
+ report=r;stocks=r.stocks||[];
+ el('metrics').innerHTML='<div class="metric"><b>'+r.count+'</b><span>匹配股票</span></div><div class="metric"><b>'+r.stock_count_scanned+'</b><span>已扫描股票</span></div><div class="metric"><b>'+safe(stocks.length?stocks[0].last_bar_month:'—')+'</b><span>月线数据日期</span></div><div class="metric"><b>'+r.failed_count+'</b><span>请求异常</span></div>';
+ el('notice').textContent=(r.is_full_market_run?'全市场扫描':'仅调试样本，非全市场')+'；报告生成（北京时间）：'+r.generated_at_china+'。注意：不包含尚未完结月线。';
+ el('meta').textContent=r.indicator+'；'+r.price_adjustment+'；'+r.scope+'。'+(r.warnings||[]).join(' ');
+ el('csv').hidden=false;shown();
+}).catch(e=>{el('notice').textContent='报告暂不可用：'+e.message+'。请先成功运行GitHub Actions扫描，并启用GitHub Pages。'});
+</script></body></html>
