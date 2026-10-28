@@ -1,5 +1,13 @@
 name: A-share monthly MACD scanner
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'screener.py'
+      - 'requirements.txt'
+      - 'tests/**'
+      - 'docs/index.html'
+      - '.github/workflows/scan.yml'
   workflow_dispatch:
     inputs:
       max_stocks:
