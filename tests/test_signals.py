@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from screener import is_a_share, available_name, macd_signal
+import pandas as pd
 
 def sample(prices):
     return [
@@ -31,6 +32,15 @@ class SignalsTest(unittest.TestCase):
         self.assertEqual(result["months_since_cross"], 1)
         self.assertTrue(result["cross_below_zero"])
         self.assertGreater(result["dif"], result["dea"])
+
+    def test_user_macd_10_22_8(self):
+        prices = [36 - .2 * i for i in range(60)] + [24, 27, 30]
+        result = macd_signal(sample(prices))
+        close = pd.Series(prices, dtype="float64")
+        expected_dif = close.ewm(span=10, adjust=False).mean() - close.ewm(span=22, adjust=False).mean()
+        expected_dea = expected_dif.ewm(span=8, adjust=False).mean()
+        self.assertAlmostEqual(result["dif"], float(expected_dif.iloc[-1]), places=4)
+        self.assertAlmostEqual(result["dea"], float(expected_dea.iloc[-1]), places=4)
 
     def test_old_cross_ignored(self):
         prices = [36 - .2 * i for i in range(60)] + [24, 27, 30, 32, 34, 36, 38]
