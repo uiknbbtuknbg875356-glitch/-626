@@ -72,8 +72,8 @@ def macd_signal(bars):
     if len(bars) < 40:
         return None
     close = pd.Series([x["close"] for x in bars], dtype="float64")
-    dif = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
-    dea = dif.ewm(span=9, adjust=False).mean()
+    dif = close.ewm(span=10, adjust=False).mean() - close.ewm(span=22, adjust=False).mean()
+    dea = dif.ewm(span=8, adjust=False).mean()
     crosses = [i for i in range(1, len(close))
                if dif.iloc[i-1] <= dea.iloc[i-1] and dif.iloc[i] > dea.iloc[i]]
     if not crosses:
@@ -136,7 +136,8 @@ def scan(max_stocks=0, delay=0.0):
             "generated_at_china": now.strftime("%Y-%m-%d %H:%M:%S"),
             "effective_date": now.strftime("%Y-%m-%d"),
             "scope": "沪深A股（不含北交所），剔除ST及退市名称",
-            "indicator": "月MACD(12,26,9)，最近3个已完成月线确认金叉且DIF>DEA",
+            "indicator": "月MACD(10,22,8)，最近3个已完成月线确认金叉且DIF>DEA",
+            "macd_parameters": {"fast": 10, "slow": 22, "signal": 8},
             "price_adjustment": "BaoStock前复权；与其他软件可能有差异",
             "is_full_market_run": max_stocks == 0,
             "universe_size": total,
