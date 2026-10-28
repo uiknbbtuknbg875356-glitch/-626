@@ -1,0 +1,58 @@
+name: A-share monthly MACD scanner
+on:
+  workflow_dispatch:
+    inputs:
+      max_stocks:
+        description: 'Test sample size; 0 means full Shanghai/Shenzhen market'
+        required: false
+        default: '0'
+  schedule:
+    # Monday 19:25 China Standard Time (11:25 UTC)
+    - cron: '25 11 * * 1'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: monthly-macd
+  cancel-in-progress: false
+
+jobs:
+  scan_and_publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    environment:
+      name: github-pages
+      url: \${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install packages
+        run: python -m pip install -r requirements.txt
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Screen monthly MACD
+        env:
+          MAX_STOCKS: \${{ github.event.inputs.max_stocks || '0' }}
+        run: python screener.py --max-stocks "$MAX_STOCKS"
+      - name: Commit latest market data
+        run: |
+          mkdir -p status
+          date -u '+Last successful scan UTC: %Y-%m-%dT%H:%M:%SZ' > status/last_successful_scan.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/results.json status/last_successful_scan.txt
+          git commit -m "data: update monthly MACD screen" || exit 0
+          git push
+      - name: Upload mobile dashboard
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
